@@ -26,6 +26,10 @@ import com.amap.api.maps.model.LatLng;
 import com.amap.api.maps.model.MyLocationStyle;
 import com.amap.api.services.core.AMapException;
 import com.amap.api.services.core.PoiItemV2;
+import com.amap.api.services.geocoder.GeocodeResult;
+import com.amap.api.services.geocoder.GeocodeSearch;
+import com.amap.api.services.geocoder.RegeocodeResult;
+import com.amap.api.services.interfaces.IGeocodeSearch;
 import com.amap.api.services.poisearch.PoiResultV2;
 import com.amap.api.services.poisearch.PoiSearchV2;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -38,7 +42,8 @@ import pub.devrel.easypermissions.EasyPermissions;
 
 public class MainActivity extends AppCompatActivity implements
         AMapLocationListener, LocationSource, PoiSearchV2.OnPoiSearchListener,
-        AMap.OnMapClickListener,AMap.OnMapLongClickListener{
+        AMap.OnMapClickListener,AMap.OnMapLongClickListener,
+        GeocodeSearch.OnGeocodeSearchListener {
     //    请求权限码
     private static final int REQUEST_PERMISSIONS = 9527;
 
@@ -64,14 +69,21 @@ public class MainActivity extends AppCompatActivity implements
     //    定义一个UiSettings对象
     private UiSettings mUiSettings;
 
-//    POI查询对象
+    //    POI查询对象
     private PoiSearchV2.Query query;
-//    POI搜索对象
+    //    POI搜索对象
     private PoiSearchV2 poiSearchV2;
     //    城市码
     private String cityCode = null;
-//    浮动按钮
+    //    浮动按钮
     private FloatingActionButton fabPOI;
+
+
+    //    地理编码搜索
+    private GeocodeSearch geocodeSearch;
+
+    //    解析成功标识码
+    private static final int PARSE_SUCCESS_CODE = 1000;
 
 
     @Override
@@ -310,6 +322,15 @@ public class MainActivity extends AppCompatActivity implements
         aMap.setOnMapClickListener(this);
 //        设置地图长按事件
         aMap.setOnMapLongClickListener(this);
+
+//        构造GeoCodeSearch对象
+        try {
+            geocodeSearch = new GeocodeSearch(this);
+        } catch (AMapException e) {
+            e.printStackTrace();
+        }
+//        设置监听
+        geocodeSearch.setOnGeocodeSearchListener(this);
     }
 
 
@@ -409,13 +430,13 @@ public class MainActivity extends AppCompatActivity implements
     }
 
     /*
-    * @Desc : POI搜索返回
-    * @Author : xiaoyun
-    * @Created_Time : 2023/2/14 21:34
-    * @Project_Name : MainActivity.java
-    * @PACKAGE_NAME : com.example.gaodemapdemo
-    * @Params : poiResultV2 POI所有数据
-    */
+     * @Desc : POI搜索返回
+     * @Author : xiaoyun
+     * @Created_Time : 2023/2/14 21:34
+     * @Project_Name : MainActivity.java
+     * @PACKAGE_NAME : com.example.gaodemapdemo
+     * @Params : poiResultV2 POI所有数据
+     */
     @Override
     public void onPoiSearched(PoiResultV2 poiResultV2, int i) {
 //        解析result获取POI信息
@@ -428,41 +449,67 @@ public class MainActivity extends AppCompatActivity implements
     }
 
     /*
-    * @Desc : POI中的项目搜索返回
-    * @Author : xiaoyun
-    * @Created_Time : 2023/2/14 21:39
-    * @Project_Name : MainActivity.java
-    * @PACKAGE_NAME : com.example.gaodemapdemo
-    * @Params : poiItemV2  获取POI item
-    */
+     * @Desc : POI中的项目搜索返回
+     * @Author : xiaoyun
+     * @Created_Time : 2023/2/14 21:39
+     * @Project_Name : MainActivity.java
+     * @PACKAGE_NAME : com.example.gaodemapdemo
+     * @Params : poiItemV2  获取POI item
+     */
     @Override
     public void onPoiItemSearched(PoiItemV2 poiItemV2, int i) {
 
     }
 
     /*
-    * @Desc : 地图单机事件
-    * @Author : xiaoyun
-    * @Created_Time : 2023/2/14 21:59
-    * @Project_Name : MainActivity.java
-    * @PACKAGE_NAME : com.example.gaodemapdemo
-    * @Params : latLng
-    */
+     * @Desc : 地图单机事件
+     * @Author : xiaoyun
+     * @Created_Time : 2023/2/14 21:59
+     * @Project_Name : MainActivity.java
+     * @PACKAGE_NAME : com.example.gaodemapdemo
+     * @Params : latLng
+     */
     @Override
     public void onMapClick(LatLng latLng) {
         showMsg("点击了地图，经度： "+latLng.latitude+"，纬度："+latLng.longitude);
     }
 
     /*
-    * @Desc : 地图长按事件
-    * @Author : xiaoyun
-    * @Created_Time : 2023/2/14 22:01
-    * @Project_Name : MainActivity.java
-    * @PACKAGE_NAME : com.example.gaodemapdemo
-    * @Params : latLng
-    */
+     * @Desc : 地图长按事件
+     * @Author : xiaoyun
+     * @Created_Time : 2023/2/14 22:01
+     * @Project_Name : MainActivity.java
+     * @PACKAGE_NAME : com.example.gaodemapdemo
+     * @Params : latLng
+     */
     @Override
     public void onMapLongClick(LatLng latLng) {
         showMsg("长按了地图，经度： "+latLng.latitude+"，纬度："+latLng.longitude);
+    }
+
+    /*
+     * @Desc : 坐标转地址
+     * @Author : 22494
+     * @Created_Time : 2023/2/15 1:11
+     * @Project_Name : MainActivity.java
+     * @PACKAGE_NAME : com.example.gaodemapdemo
+     * @Params : regeocodeResult, i
+     */
+    @Override
+    public void onRegeocodeSearched(RegeocodeResult regeocodeResult, int i) {
+
+    }
+
+    /*
+     * @Desc : 地址转坐标
+     * @Author : 22494
+     * @Created_Time : 2023/2/15 1:12
+     * @Project_Name : MainActivity.java
+     * @PACKAGE_NAME : com.example.gaodemapdemo
+     * @Params :
+     */
+    @Override
+    public void onGeocodeSearched(GeocodeResult geocodeResult, int i) {
+
     }
 }
