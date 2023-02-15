@@ -4,12 +4,16 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.Manifest;
+import android.content.Context;
 import android.graphics.Color;
 import android.icu.text.CaseMap;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -23,11 +27,18 @@ import com.amap.api.maps.MapView;
 import com.amap.api.maps.UiSettings;
 import com.amap.api.maps.model.BitmapDescriptorFactory;
 import com.amap.api.maps.model.LatLng;
+import com.amap.api.maps.model.Marker;
+import com.amap.api.maps.model.MarkerOptions;
 import com.amap.api.maps.model.MyLocationStyle;
 import com.amap.api.services.core.AMapException;
+import com.amap.api.services.core.LatLonPoint;
 import com.amap.api.services.core.PoiItemV2;
+import com.amap.api.services.geocoder.GeocodeAddress;
+import com.amap.api.services.geocoder.GeocodeQuery;
 import com.amap.api.services.geocoder.GeocodeResult;
 import com.amap.api.services.geocoder.GeocodeSearch;
+import com.amap.api.services.geocoder.RegeocodeAddress;
+import com.amap.api.services.geocoder.RegeocodeQuery;
 import com.amap.api.services.geocoder.RegeocodeResult;
 import com.amap.api.services.interfaces.IGeocodeSearch;
 import com.amap.api.services.poisearch.PoiResultV2;
@@ -36,14 +47,15 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.security.PublicKey;
 import java.util.ArrayList;
+import java.util.List;
 
 import pub.devrel.easypermissions.AfterPermissionGranted;
 import pub.devrel.easypermissions.EasyPermissions;
 
 public class MainActivity extends AppCompatActivity implements
         AMapLocationListener, LocationSource, PoiSearchV2.OnPoiSearchListener,
-        AMap.OnMapClickListener,AMap.OnMapLongClickListener,
-        GeocodeSearch.OnGeocodeSearchListener {
+        AMap.OnMapClickListener, AMap.OnMapLongClickListener,
+        GeocodeSearch.OnGeocodeSearchListener, EditText.OnKeyListener {
     //    请求权限码
     private static final int REQUEST_PERMISSIONS = 9527;
 
@@ -78,12 +90,23 @@ public class MainActivity extends AppCompatActivity implements
     //    浮动按钮
     private FloatingActionButton fabPOI;
 
-
     //    地理编码搜索
     private GeocodeSearch geocodeSearch;
 
     //    解析成功标识码
     private static final int PARSE_SUCCESS_CODE = 1000;
+
+    //    输入框
+    private EditText etAddress;
+
+//    城市
+    private String city;
+
+//    浮动按钮，清空地图标点
+    private FloatingActionButton fabClearMaker;
+
+//    标点列表
+    private List<Marker> markerList = new ArrayList<>();
 
 
     @Override
@@ -99,6 +122,10 @@ public class MainActivity extends AppCompatActivity implements
         mapView.onCreate(savedInstanceState);
 
         fabPOI = findViewById(R.id.fab_poi);
+
+        etAddress = findViewById(R.id.et_address);
+//        键盘按键监听
+        etAddress.setOnKeyListener(this);
 
 //        初始化定位
         initLocation();
@@ -230,7 +257,7 @@ public class MainActivity extends AppCompatActivity implements
 //                地址
                 String address = aMapLocation.getAddress();
 //                城市赋值
-                String city = aMapLocation.getCity();
+                city = aMapLocation.getCity();
 //                获取纬度
                 double latitude = aMapLocation.getLatitude();
 //                获取经度
@@ -472,6 +499,12 @@ public class MainActivity extends AppCompatActivity implements
     @Override
     public void onMapClick(LatLng latLng) {
         showMsg("点击了地图，经度： "+latLng.latitude+"，纬度："+latLng.longitude);
+//        通过经纬度获取地址
+        latlonToAddress(latLng);
+
+//        添加标点
+//        aMap.addMarker(new MarkerOptions().position(latLng).snippet("DefaultMarker"));
+        addMarker(latLng);
     }
 
     /*
@@ -484,7 +517,9 @@ public class MainActivity extends AppCompatActivity implements
      */
     @Override
     public void onMapLongClick(LatLng latLng) {
-        showMsg("长按了地图，经度： "+latLng.latitude+"，纬度："+latLng.longitude);
+        showMsg("长按了地图，经度： " + latLng.latitude + "，纬度：" + latLng.longitude);
+//        通过经纬度获取地址
+        latlonToAddress(latLng);
     }
 
     /*
@@ -496,8 +531,15 @@ public class MainActivity extends AppCompatActivity implements
      * @Params : regeocodeResult, i
      */
     @Override
-    public void onRegeocodeSearched(RegeocodeResult regeocodeResult, int i) {
-
+    public void onRegeocodeSearched(RegeocodeResult regeocodeResult, int rCode) {
+//        解析result获取地址描述信息
+        if (rCode == PARSE_SUCCESS_CODE) {
+            RegeocodeAddress regeocodeAddress = regeocodeResult.getRegeocodeAddress();
+//            显示解析后的地址
+            showMsg("地址：" + regeocodeAddress.getFormatAddress());
+        } else {
+            showMsg("获取地址失败！");
+        }
     }
 
     /*
@@ -509,7 +551,98 @@ public class MainActivity extends AppCompatActivity implements
      * @Params :
      */
     @Override
-    public void onGeocodeSearched(GeocodeResult geocodeResult, int i) {
+    public void onGeocodeSearched(GeocodeResult geocodeResult, int rCode) {
+        if (rCode == PARSE_SUCCESS_CODE) {
+            List<GeocodeAddress> geocodeAddressList = geocodeResult.getGeocodeAddressList();
+            if (geocodeAddressList != null && geocodeAddressList.size() > 0) {
+                LatLonPoint latLonPoint = geocodeAddressList.get(0).getLatLonPoint();
+//                显示解析后的坐标
+                showMsg("坐标：" + latLonPoint.getLatitude() + "，" + latLonPoint.getLongitude());
+            }
+        } else {
+            showMsg("获取坐标失败！");
+        }
+    }
 
+    /*
+    * @Desc : 通过经纬度获取地址
+    * @Author : xiaoyun
+    * @Created_Time : 2023/2/15 17:35
+    * @Project_Name : MainActivity.java
+    * @PACKAGE_NAME : com.example.gaodemapdemo
+    * @Params : latLng  表示一个具有纬度(lat)和经度(lng)的地理坐标(以度为单位)
+    */
+    private void latlonToAddress(LatLng latLng) {
+//        位置点，通过经纬度构建
+        LatLonPoint latLonPoint = new LatLonPoint(latLng.latitude, latLng.longitude);
+//        逆编码查询 第一个参数表示一个LatLng，第二个参数表示范围多少米，第三个参数表示是火星坐标系还是GPS坐标系
+//        LatLng是表示一个具有纬度(lat)和经度(lng)的地理坐标(以度为单位)
+//        Point指的是用像素表示x和y的坐标点。
+        RegeocodeQuery query = new RegeocodeQuery(latLonPoint, 0, GeocodeSearch.AMAP);
+//        异步获取地址信息
+        geocodeSearch.getFromLocationAsyn(query);
+    }
+
+    /*
+    * @Desc : 键盘点击
+    * @Author : xiaoyun
+    * @Created_Time : 2023/2/15 20:16
+    * @Project_Name : MainActivity.java
+    * @PACKAGE_NAME : com.example.gaodemapdemo
+    * @Params :
+    */
+    @Override
+    public boolean onKey(View v, int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_ENTER && event.getAction() == KeyEvent.ACTION_UP) {
+//            获取输入框的值
+            String address = etAddress.getText().toString().trim();
+            if (address == null || address.isEmpty()) {
+                showMsg("请输入地址");
+            } else {
+                InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+//                隐藏软键盘
+                imm.hideSoftInputFromWindow(getWindow().getDecorView().getWindowToken(), 0);
+
+//                name表示地址，第二个参数表示查询城市，中文或者中文全拼，citycode、adcode
+                GeocodeQuery query = new GeocodeQuery(address, city);
+                geocodeSearch.getFromLocationNameAsyn(query);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /*
+     * @Desc : 添加地图标点
+     * @Author : xiaoyun
+     * @Created_Time : 2023/2/15 22:07
+     * @Project_Name : MainActivity.java
+     * @PACKAGE_NAME : com.example.gaodemapdemo
+     * @Params :
+     */
+    private void addMarker(LatLng latLng) {
+//        显示浮动按钮
+        fabClearMaker.show();
+//        添加标点
+        Marker marker = aMap.addMarker(new MarkerOptions().position(latLng).snippet("DefaultMarker"));
+        markerList.add(marker);
+    }
+
+    /*
+     * @Desc : 清空地图标点
+     * @Author : xiaoyun
+     * @Created_Time : 2023/2/15 22:13
+     * @Project_Name : MainActivity.java
+     * @PACKAGE_NAME : com.example.gaodemapdemo
+     * @Params :
+     */
+    public void clearAllMarker(View view) {
+        if (markerList != null && markerList.size() > 0) {
+            for (Marker markerItem:markerList
+                 ) {
+                markerItem.remove();
+            }
+        }
+        fabClearMaker.hide();
     }
 }
