@@ -46,7 +46,7 @@
         android:layout_height="match_parent"
         android:layout_below="@+id/toolbar" />
 
-    <!--浮动按钮    获取POI-->
+    <!--浮动按钮 获取poi-->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab_poi"
         android:layout_width="wrap_content"
@@ -62,8 +62,7 @@
         app:backgroundTint="#FFF"
         app:backgroundTintMode="screen"
         app:hoveredFocusedTranslationZ="18dp"
-        app:pressedTranslationZ="18dp"
-        tools:ignore="MissingConstraints" />
+        app:pressedTranslationZ="18dp" />
 
     <!--浮动按钮 清空marker-->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -81,7 +80,7 @@
         android:visibility="invisible"
         app:backgroundTintMode="screen"
         app:hoveredFocusedTranslationZ="18dp"
-        app:pressedTranslationZ="18dp"/>
+        app:pressedTranslationZ="18dp" />
 
 
 </RelativeLayout>
